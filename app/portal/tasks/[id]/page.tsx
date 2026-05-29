@@ -5,6 +5,8 @@ import { getRole } from "@/lib/auth/role";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { Button } from "@/components/ui/Button";
 import { actCompleteTask } from "@/app/actions/tasks";
+import { actActivateKitFromForm, actShipReturn } from "@/app/actions/kits";
+import { renderQrSvg } from "@/lib/qr";
 
 export default async function ParticipantTaskPage({
   params,
@@ -19,7 +21,16 @@ export default async function ParticipantTaskPage({
     where: { id },
     include: {
       template: { include: { timepoint: true } },
-      participant: { include: { study: true } },
+      participant: {
+        include: {
+          study: true,
+          kits: {
+            where: { status: { in: ["DELIVERED", "ACTIVATED", "SHIPPED", "RETURN_SHIPPED"] } },
+            include: { lot: { include: { sku: true } } },
+            orderBy: { allocatedAt: "desc" },
+          },
+        },
+      },
     },
   });
   if (!task || task.participantId !== role.participantId) notFound();
@@ -27,6 +38,12 @@ export default async function ParticipantTaskPage({
   const complete = async () => {
     "use server";
     await actCompleteTask(id);
+  };
+  const shipReturn = async () => {
+    "use server";
+    const kit = task.participant.kits.find((k) => k.status === "ACTIVATED");
+    if (!kit) throw new Error("No activated kit to return");
+    await actShipReturn(kit.id);
   };
 
   return (
@@ -113,10 +130,79 @@ export default async function ParticipantTaskPage({
             This task will unlock when its trigger fires.
           </div>
         </div>
+      ) : task.template.kind === "KIT_ACTIVATE" ? (
+        <KitActivateBody
+          deliveredKit={task.participant.kits.find(
+            (k) => k.status === "DELIVERED",
+          )}
+        />
+      ) : task.template.kind === "SAMPLE_RETURN" ? (
+        <SampleReturnBody onShip={shipReturn} />
       ) : (
         <MockTaskBody kind={task.template.kind} onComplete={complete} />
       )}
     </div>
+  );
+}
+
+function KitActivateBody({
+  deliveredKit,
+}: {
+  deliveredKit:
+    | {
+        id: string;
+        qrToken: string;
+        lot: { sku: { name: string } };
+      }
+    | undefined;
+}) {
+  if (!deliveredKit) {
+    return (
+      <div className="rounded-lg bg-[var(--color-surface-2)] px-4 py-4 text-[13px] text-[var(--color-muted)]">
+        Your kit hasn&apos;t been delivered yet. We&apos;ll unlock this task
+        the moment the carrier confirms delivery.
+      </div>
+    );
+  }
+  const svg = renderQrSvg(deliveredKit.qrToken, 180);
+  return (
+    <form action={actActivateKitFromForm} className="space-y-4">
+      <input type="hidden" name="token" value={deliveredKit.qrToken} />
+      <div className="rounded-lg bg-[var(--color-surface)] px-4 py-4 ring-subtle text-center">
+        <p className="text-[12px] text-[var(--color-muted)]">
+          Your kit ({deliveredKit.lot.sku.name})
+        </p>
+        <div
+          className="mx-auto mt-3 inline-block rounded-md bg-white p-2 ring-subtle"
+          dangerouslySetInnerHTML={{ __html: svg }}
+        />
+        <p className="mt-3 font-mono text-[12px]">{deliveredKit.qrToken}</p>
+        <p className="mt-2 text-[12px] text-[var(--color-muted)]">
+          In production this scans via the device camera. Tap below to confirm
+          you have the kit.
+        </p>
+      </div>
+      <Button type="submit" size="lg" className="w-full">
+        Activate my kit
+      </Button>
+    </form>
+  );
+}
+
+function SampleReturnBody({ onShip }: { onShip: () => void }) {
+  return (
+    <form action={onShip} className="space-y-4">
+      <div className="rounded-lg bg-[var(--color-surface)] px-4 py-4 ring-subtle">
+        <p className="text-[13px]">
+          Pack the labelled tubes back into the kit box, peel off the prepaid
+          return label, and drop the kit at any carrier location. Tap below
+          once you&apos;ve dropped it off.
+        </p>
+      </div>
+      <Button type="submit" size="lg" className="w-full">
+        I&apos;ve shipped the return
+      </Button>
+    </form>
   );
 }
 
@@ -138,6 +224,27 @@ function MockTaskBody({
         </div>
         <Button type="submit" size="lg" className="w-full">
           Mark visit complete
+        </Button>
+      </form>
+    );
+  }
+  if (kind === "SAMPLE_COLLECT") {
+    return (
+      <form action={onComplete} className="space-y-4">
+        <div className="rounded-lg bg-[var(--color-surface)] px-4 py-4 ring-subtle text-[13px]">
+          <p>
+            Follow the labelled tube&apos;s instruction card. Make sure the
+            tube barcode matches the one in your kit before sealing.
+          </p>
+          <ol className="mt-3 list-decimal space-y-1.5 pl-4 text-[12.5px] text-[var(--color-ink-2)]">
+            <li>Wash hands. Open the labelled tube.</li>
+            <li>Swab the underarm in slow circles for 30 seconds.</li>
+            <li>Place the swab in the buffer, cap firmly, and shake 5×.</li>
+            <li>Return the tube to its slot in the kit.</li>
+          </ol>
+        </div>
+        <Button type="submit" size="lg" className="w-full">
+          I collected this sample
         </Button>
       </form>
     );

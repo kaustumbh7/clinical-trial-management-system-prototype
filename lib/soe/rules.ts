@@ -33,18 +33,27 @@ export async function materializeTimeline(
     const dueAt = addDays(enrollmentDate, offset);
 
     let availableAt: Date;
+    let status: "PENDING" | "DUE" = "PENDING";
+
     if (t.triggerType === "TIME") {
       availableAt = dueAt;
     } else if (t.triggerType === "COMPLETION") {
       availableAt = enrollmentDate;
+    } else if (t.triggerType === "MANUAL") {
+      // Staff- or admin-actioned tasks (e.g. KIT_SHIP) start DUE so they
+      // show up immediately in the relevant operational queue.
+      availableAt = enrollmentDate;
+      status = "DUE";
     } else {
+      // WEBHOOK trigger — stays PENDING until the engine's webhook handler
+      // flips it (e.g. KIT_ACTIVATE waits on shipping.delivered).
       availableAt = enrollmentDate;
     }
 
     return {
       participantId,
       templateId: t.id,
-      status: "PENDING" as const,
+      status,
       dueAt,
       availableAt,
     };

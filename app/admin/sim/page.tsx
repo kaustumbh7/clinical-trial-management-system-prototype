@@ -3,11 +3,12 @@ import { Card, CardHeader } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { getSimNow } from "@/lib/sim-clock";
 import { actAdvanceSim, actFireWebhook } from "@/app/actions/sim";
+import Link from "next/link";
 
 export default async function SimulatorPage() {
   const simNow = await getSimNow();
 
-  const [pending, due, overdue, completed, audit] = await Promise.all([
+  const [pending, due, overdue, completed, audit, activeShipments] = await Promise.all([
     prisma.taskInstance.count({ where: { status: "PENDING" } }),
     prisma.taskInstance.count({ where: { status: "DUE" } }),
     prisma.taskInstance.count({ where: { status: "OVERDUE" } }),
@@ -24,8 +25,19 @@ export default async function SimulatorPage() {
             "REMINDER_SENT",
             "WEBHOOK_RECEIVED",
             "SIM_CLOCK_ADVANCED",
+            "KIT_DELIVERED",
+            "KIT_RETURNED",
+            "KIT_LOST",
           ],
         },
+      },
+    }),
+    prisma.shipment.findMany({
+      where: { status: "IN_TRANSIT" },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      include: {
+        kit: { include: { participant: true } },
       },
     }),
   ]);
@@ -145,6 +157,67 @@ export default async function SimulatorPage() {
           </div>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader
+          title="Shipments in transit"
+          hint="Fire carrier webhooks against active shipments to drive the kit lifecycle."
+        />
+        <ul className="divide-y divide-[var(--color-border)] border-t border-[var(--color-border)]">
+          {activeShipments.length === 0 && (
+            <li className="px-5 py-10 text-center text-[13px] text-[var(--color-muted)]">
+              No active shipments. Ship a kit from <Link href="/admin" className="text-[var(--color-primary)]">a study&apos;s Kits page</Link> first.
+            </li>
+          )}
+          {activeShipments.map((s) => {
+            const fireDelivered = async () => {
+              "use server";
+              await actFireWebhook(
+                s.carrier.toLowerCase(),
+                s.direction === "OUTBOUND"
+                  ? "shipping.delivered"
+                  : "shipping.return_delivered",
+                { trackingNumber: s.trackingNumber },
+              );
+            };
+            const fireLost = async () => {
+              "use server";
+              await actFireWebhook(s.carrier.toLowerCase(), "shipping.lost", {
+                trackingNumber: s.trackingNumber,
+              });
+            };
+            return (
+              <li
+                key={s.id}
+                className="flex flex-wrap items-center gap-3 px-5 py-3"
+              >
+                <div className="flex-1 min-w-[200px]">
+                  <div className="text-[12.5px]">
+                    <span className="font-mono">{s.carrier}</span>
+                    <span className="mx-1.5">·</span>
+                    <span className="font-mono">{s.trackingNumber}</span>
+                  </div>
+                  <div className="text-[11px] text-[var(--color-muted)]">
+                    {s.direction} to{" "}
+                    {s.kit.participant?.name ??
+                      (s.direction === "RETURN" ? "lab intake" : "unknown")}
+                  </div>
+                </div>
+                <form action={fireDelivered}>
+                  <Button type="submit" size="sm">
+                    Simulate delivered
+                  </Button>
+                </form>
+                <form action={fireLost}>
+                  <Button type="submit" size="sm" variant="danger">
+                    Simulate lost
+                  </Button>
+                </form>
+              </li>
+            );
+          })}
+        </ul>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-4">
         <Stat label="Pending" value={pending} accent="pending" />

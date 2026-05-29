@@ -19,6 +19,7 @@ model Study {
   templates    SoeTaskTemplate[]
   participants Participant[]
   screeners    ScreenerResponse[]
+  kitSkus      KitSku[]
 }
 
 model StudyArm {
@@ -47,8 +48,9 @@ model SoeTaskTemplate {
   timepointId         String?
   name                String
   description         String?
-  kind                String // CONSENT | SURVEY | VISIT | KIT_ACTIVATE | REMINDER
-  triggerType         String // TIME | COMPLETION | MANUAL
+  // CONSENT | SURVEY | VISIT | REMINDER | KIT_SHIP | KIT_ACTIVATE | SAMPLE_COLLECT | SAMPLE_RETURN
+  kind                String
+  triggerType         String // TIME | COMPLETION | MANUAL | WEBHOOK
   dependsOnTemplateId String?
   reminderOffsetDays  Int?
   sortOrder           Int     @default(0)
@@ -72,6 +74,8 @@ model Participant {
   arm      StudyArm?       @relation(fields: [armId], references: [id])
   consents ConsentRecord[]
   tasks    TaskInstance[]
+  kits     Kit[]
+  samples  Sample[]
 
   @@index([studyId, status])
 }
@@ -135,4 +139,87 @@ model SimClock {
   id          String   @id @default("singleton")
   currentDate DateTime
   updatedAt   DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Logistics — Kits, Inventory, Shipments, Samples (Group A)
+// ---------------------------------------------------------------------------
+
+model KitSku {
+  id            String @id @default(cuid())
+  studyId       String
+  code          String
+  name          String
+  vendor        String?
+  expiryMonths  Int     @default(24)
+
+  study Study    @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  lots  KitLot[]
+
+  @@unique([studyId, code])
+}
+
+model KitLot {
+  id              String   @id @default(cuid())
+  skuId           String
+  lotNumber       String
+  quantityOnHand  Int      @default(0)
+  threshold       Int      @default(10)
+  expiryAt        DateTime?
+  receivedAt      DateTime @default(now())
+
+  sku  KitSku @relation(fields: [skuId], references: [id], onDelete: Cascade)
+  kits Kit[]
+
+  @@unique([skuId, lotNumber])
+}
+
+model Kit {
+  id            String   @id @default(cuid())
+  lotId         String
+  participantId String?
+  // ALLOCATED | SHIPPED | DELIVERED | ACTIVATED | RETURN_SHIPPED | RETURNED | LOST
+  status        String   @default("ALLOCATED")
+  qrToken       String   @unique
+  allocatedAt   DateTime @default(now())
+  activatedAt   DateTime?
+
+  lot         KitLot       @relation(fields: [lotId], references: [id], onDelete: Cascade)
+  participant Participant? @relation(fields: [participantId], references: [id])
+  shipments   Shipment[]
+  samples     Sample[]
+
+  @@index([participantId, status])
+}
+
+model Shipment {
+  id             String   @id @default(cuid())
+  kitId          String
+  direction      String   // OUTBOUND | RETURN
+  carrier        String
+  trackingNumber String   @unique
+  // CREATED | IN_TRANSIT | DELIVERED | LOST
+  status         String   @default("CREATED")
+  labelPath      String?
+  createdAt      DateTime @default(now())
+  deliveredAt    DateTime?
+
+  kit Kit @relation(fields: [kitId], references: [id], onDelete: Cascade)
+}
+
+model Sample {
+  id            String    @id @default(cuid())
+  kitId         String
+  participantId String
+  timepointId   String?
+  tubeBarcode   String    @unique
+  collectedAt   DateTime?
+  intakeAt      DateTime?
+  condition     String?   // GOOD | DEGRADED | LOST | UNUSABLE
+  notes         String?
+
+  kit         Kit         @relation(fields: [kitId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([participantId])
 }

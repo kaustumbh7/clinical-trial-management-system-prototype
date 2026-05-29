@@ -1,6 +1,7 @@
 import { prisma } from "../db";
 import { appendAudit } from "../audit/log";
 import { materializeTimeline } from "./rules";
+import { getSimNow } from "../sim-clock";
 import type { EngineEvent, ActorRef } from "./types";
 
 /**
@@ -224,7 +225,129 @@ async function handleWebhook(event: Extract<EngineEvent, { kind: "WEBHOOK_RECEIV
     targetId: event.vendor,
     metadata: { type: event.type, ...event.payload },
   });
+
+  // Type-specific dispatchers — each one keeps audit context to itself.
+  if (event.type === "shipping.delivered") {
+    await onShippingDelivered(event.payload);
+  } else if (event.type === "shipping.return_delivered") {
+    await onShippingReturnDelivered(event.payload);
+  } else if (event.type === "shipping.lost") {
+    await onShippingLost(event.payload);
+  }
+
   return { ok: true };
+}
+
+async function onShippingDelivered(payload: Record<string, unknown>) {
+  const trackingNumber =
+    typeof payload.trackingNumber === "string" ? payload.trackingNumber : null;
+  if (!trackingNumber) return;
+  const shipment = await prisma.shipment.findUnique({
+    where: { trackingNumber },
+    include: { kit: { include: { participant: true, lot: { include: { sku: true } } } } },
+  });
+  if (!shipment || shipment.direction !== "OUTBOUND") return;
+  const now = await getSimNow();
+
+  await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: { status: "DELIVERED", deliveredAt: now },
+  });
+  await prisma.kit.update({
+    where: { id: shipment.kitId },
+    data: { status: "DELIVERED" },
+  });
+
+  // Flip the participant's PENDING KIT_ACTIVATE task → DUE
+  if (shipment.kit.participantId) {
+    const activateTasks = await prisma.taskInstance.findMany({
+      where: {
+        participantId: shipment.kit.participantId,
+        status: "PENDING",
+        template: { kind: "KIT_ACTIVATE" },
+      },
+      include: { template: true, participant: true },
+    });
+    for (const t of activateTasks) {
+      await prisma.taskInstance.update({
+        where: { id: t.id },
+        data: { status: "DUE", availableAt: now },
+      });
+      await appendAudit({
+        actor: sysActor,
+        action: "TASK_BECAME_DUE",
+        targetType: "TaskInstance",
+        targetId: t.id,
+        studyId: t.participant.studyId,
+        metadata: { reason: "kit_delivered", templateName: t.template.name },
+      });
+    }
+    await appendAudit({
+      actor: sysActor,
+      action: "KIT_DELIVERED",
+      targetType: "Kit",
+      targetId: shipment.kitId,
+      studyId: shipment.kit.lot.sku.studyId,
+      metadata: { trackingNumber, sku: shipment.kit.lot.sku.code },
+    });
+  }
+}
+
+async function onShippingReturnDelivered(payload: Record<string, unknown>) {
+  const trackingNumber =
+    typeof payload.trackingNumber === "string" ? payload.trackingNumber : null;
+  if (!trackingNumber) return;
+  const shipment = await prisma.shipment.findUnique({
+    where: { trackingNumber },
+    include: { kit: { include: { lot: { include: { sku: true } } } } },
+  });
+  if (!shipment || shipment.direction !== "RETURN") return;
+  const now = await getSimNow();
+
+  await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: { status: "DELIVERED", deliveredAt: now },
+  });
+  await prisma.kit.update({
+    where: { id: shipment.kitId },
+    data: { status: "RETURNED" },
+  });
+  await appendAudit({
+    actor: sysActor,
+    action: "KIT_RETURNED",
+    targetType: "Kit",
+    targetId: shipment.kitId,
+    studyId: shipment.kit.lot.sku.studyId,
+    metadata: { trackingNumber },
+  });
+}
+
+async function onShippingLost(payload: Record<string, unknown>) {
+  const trackingNumber =
+    typeof payload.trackingNumber === "string" ? payload.trackingNumber : null;
+  if (!trackingNumber) return;
+  const shipment = await prisma.shipment.findUnique({
+    where: { trackingNumber },
+    include: { kit: { include: { lot: { include: { sku: true } } } } },
+  });
+  if (!shipment) return;
+
+  await prisma.shipment.update({
+    where: { id: shipment.id },
+    data: { status: "LOST" },
+  });
+  await prisma.kit.update({
+    where: { id: shipment.kitId },
+    data: { status: "LOST" },
+  });
+  await appendAudit({
+    actor: sysActor,
+    action: "KIT_LOST",
+    targetType: "Kit",
+    targetId: shipment.kitId,
+    studyId: shipment.kit.lot.sku.studyId,
+    metadata: { trackingNumber, direction: shipment.direction },
+  });
 }
 
 async function handleManualOverride(
