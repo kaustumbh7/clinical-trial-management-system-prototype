@@ -30,7 +30,7 @@
   --color-status-skipped: #8E887F;
   --color-status-skipped-soft: #ECE8DF;
 
-  --font-display: "Instrument Serif", "Source Serif Pro", Georgia, serif;
+  --font-display: "Fraunces", "Source Serif Pro", Georgia, serif;
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", "Fira Code", "Menlo", monospace;
 }
@@ -58,18 +58,20 @@ body {
 
 .font-display {
   font-family: var(--font-display);
+  font-weight: 500;
   font-feature-settings: "ss01";
-  letter-spacing: -0.01em;
+  letter-spacing: -0.018em;
 }
 
 .font-mono {
   font-family: var(--font-mono);
 }
 
+/* Used to give a display-font fragment an accent treatment without italics. */
 .serif-italic {
   font-family: var(--font-display);
-  font-style: italic;
-  letter-spacing: -0.005em;
+  font-weight: 600;
+  letter-spacing: -0.02em;
 }
 
 /* Pretty dot grid for the landing page */

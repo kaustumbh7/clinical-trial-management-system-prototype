@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Instrument_Serif, JetBrains_Mono } from "next/font/google";
+import { Inter, Fraunces, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 
 const inter = Inter({
@@ -8,11 +8,10 @@ const inter = Inter({
   display: "swap",
 });
 
-const instrumentSerif = Instrument_Serif({
+const fraunces = Fraunces({
   subsets: ["latin"],
-  weight: ["400"],
-  style: ["normal", "italic"],
-  variable: "--font-instrument-serif",
+  weight: ["400", "500", "600", "700"],
+  variable: "--font-fraunces",
   display: "swap",
 });
 
@@ -34,12 +33,10 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${instrumentSerif.variable} ${jetbrains.variable} h-full`}
+      className={`${inter.variable} ${fraunces.variable} ${jetbrains.variable} h-full`}
       style={{
-        // Wire the next/font CSS vars into our @theme tokens
-        // so Tailwind's font-* classes pick them up automatically.
         ["--font-sans" as never]: "var(--font-inter), system-ui, sans-serif",
-        ["--font-display" as never]: "var(--font-instrument-serif), Georgia, serif",
+        ["--font-display" as never]: "var(--font-fraunces), Georgia, serif",
         ["--font-mono" as never]: "var(--font-jetbrains-mono), ui-monospace, monospace",
       }}
     >

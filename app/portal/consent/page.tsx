@@ -73,7 +73,7 @@ export default async function ConsentPage() {
             name="signatureName"
             required
             defaultValue={participant.name}
-            className="mt-1.5 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[20px] italic text-[var(--color-primary-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
+            className="mt-1.5 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-2.5 font-display text-[20px] text-[var(--color-primary-ink)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/40"
           />
         </label>
         <label className="flex items-start gap-3 rounded-lg bg-[var(--color-surface-2)] px-3.5 py-3 ring-subtle">
