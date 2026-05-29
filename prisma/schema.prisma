@@ -1,0 +1,138 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Study {
+  id        String   @id @default(cuid())
+  name      String
+  code      String   @unique
+  status    String   @default("ACTIVE") // DRAFT | ACTIVE | CLOSED
+  createdAt DateTime @default(now())
+
+  arms         StudyArm[]
+  timepoints   Timepoint[]
+  templates    SoeTaskTemplate[]
+  participants Participant[]
+  screeners    ScreenerResponse[]
+}
+
+model StudyArm {
+  id       String @id @default(cuid())
+  studyId  String
+  name     String
+  capacity Int    @default(50)
+
+  study        Study         @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  participants Participant[]
+}
+
+model Timepoint {
+  id        String @id @default(cuid())
+  studyId   String
+  name      String
+  dayOffset Int
+
+  study     Study             @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  templates SoeTaskTemplate[]
+}
+
+model SoeTaskTemplate {
+  id                  String  @id @default(cuid())
+  studyId             String
+  timepointId         String?
+  name                String
+  description         String?
+  kind                String // CONSENT | SURVEY | VISIT | KIT_ACTIVATE | REMINDER
+  triggerType         String // TIME | COMPLETION | MANUAL
+  dependsOnTemplateId String?
+  reminderOffsetDays  Int?
+  sortOrder           Int     @default(0)
+
+  study         Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  timepoint     Timepoint?     @relation(fields: [timepointId], references: [id])
+  taskInstances TaskInstance[]
+}
+
+model Participant {
+  id         String    @id @default(cuid())
+  studyId    String
+  armId      String?
+  name       String
+  email      String
+  status     String    @default("LEAD") // LEAD | SCREENED | CONSENTED | ENROLLED | WITHDRAWN | COMPLETED
+  enrolledAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  study    Study           @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  arm      StudyArm?       @relation(fields: [armId], references: [id])
+  consents ConsentRecord[]
+  tasks    TaskInstance[]
+
+  @@index([studyId, status])
+}
+
+model ScreenerResponse {
+  id        String   @id @default(cuid())
+  studyId   String
+  leadName  String
+  leadEmail String
+  answers   String
+  outcome   String // QUALIFIED | DISQUALIFIED | WAITLIST
+  createdAt DateTime @default(now())
+
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+}
+
+model ConsentRecord {
+  id            String   @id @default(cuid())
+  participantId String
+  version       String   @default("v1.0")
+  signedAt      DateTime @default(now())
+  signatureName String
+  pdfBlobPath   String
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+}
+
+model TaskInstance {
+  id            String    @id @default(cuid())
+  participantId String
+  templateId    String
+  status        String    @default("PENDING") // PENDING | DUE | COMPLETED | OVERDUE | SKIPPED
+  dueAt         DateTime
+  availableAt   DateTime
+  completedAt   DateTime?
+  payload       String?
+
+  participant Participant     @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  template    SoeTaskTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  @@index([participantId, status])
+}
+
+model AuditEvent {
+  id         String   @id @default(cuid())
+  ts         DateTime @default(now())
+  actorKind  String // STAFF | PARTICIPANT | SYSTEM
+  actorId    String?
+  actorLabel String?
+  action     String
+  targetType String
+  targetId   String
+  studyId    String?
+  metadata   String?
+
+  @@index([ts])
+  @@index([studyId, ts])
+}
+
+model SimClock {
+  id          String   @id @default("singleton")
+  currentDate DateTime
+  updatedAt   DateTime @updatedAt
+}

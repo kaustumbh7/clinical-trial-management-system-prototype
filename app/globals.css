@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #FBF9F4;
+  --color-surface: #FFFFFF;
+  --color-surface-2: #F5F1E8;
+  --color-ink: #1A1816;
+  --color-ink-2: #3A3631;
+  --color-muted: #6B6660;
+  --color-muted-2: #8E887F;
+  --color-border: #E5E0D7;
+  --color-border-strong: #D6CFC0;
+
+  --color-primary: #0F5C5C;
+  --color-primary-hover: #0B4646;
+  --color-primary-soft: #E6F2F0;
+  --color-primary-ink: #073D3D;
+
+  --color-accent: #C16E3F;
+  --color-accent-soft: #F8E9DD;
+
+  --color-status-pending: #B89A5A;
+  --color-status-pending-soft: #F5EDD9;
+  --color-status-due: #C16E3F;
+  --color-status-due-soft: #F8E9DD;
+  --color-status-completed: #2D6A4F;
+  --color-status-completed-soft: #DCEDE3;
+  --color-status-overdue: #B23A48;
+  --color-status-overdue-soft: #F6DDE0;
+  --color-status-skipped: #8E887F;
+  --color-status-skipped-soft: #ECE8DF;
+
+  --font-display: "Instrument Serif", "Source Serif Pro", Georgia, serif;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", "Fira Code", "Menlo", monospace;
+}
+
+* {
+  border-color: var(--color-border);
+}
+
+html {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "ss01", "cv11";
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  font-size: 15px;
+  line-height: 1.55;
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-feature-settings: "ss01";
+  letter-spacing: -0.01em;
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+.serif-italic {
+  font-family: var(--font-display);
+  font-style: italic;
+  letter-spacing: -0.005em;
+}
+
+/* Pretty dot grid for the landing page */
+.bg-grid {
+  background-image: radial-gradient(circle, #D6CFC0 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Inner subtle ring used on cards */
+.ring-subtle {
+  box-shadow:
+    0 1px 0 rgba(26, 24, 22, 0.02),
+    0 0 0 1px var(--color-border);
+}
+
+.ring-subtle-strong {
+  box-shadow:
+    0 1px 2px rgba(26, 24, 22, 0.04),
+    0 0 0 1px var(--color-border-strong);
+}
+
+/* Numeric tabular for IDs and counts */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
