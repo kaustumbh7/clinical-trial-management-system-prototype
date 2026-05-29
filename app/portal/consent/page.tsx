@@ -54,7 +54,7 @@ export default async function ConsentPage() {
         </p>
         <p className="mt-3">
           Your data is stored encrypted, isolated by study, and accessible only
-          to TaxaTech staff with a research need. You can withdraw at any time
+          to QuidoLabs staff with a research need. You can withdraw at any time
           without giving a reason, and we'll delete your identifiable data on
           request.
         </p>

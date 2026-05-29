@@ -19,7 +19,7 @@ export function Logo({ size = 20 }: { size?: number }) {
         />
       </svg>
       <span className="text-[16px] tracking-tight">
-        TaxaTech<span className="italic text-[var(--color-primary)]"> CTMS</span>
+        QuidoLabs<span className="font-semibold text-[var(--color-primary)]"> CTMS</span>
       </span>
     </span>
   );

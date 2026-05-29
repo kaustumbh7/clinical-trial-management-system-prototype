@@ -22,7 +22,7 @@ const jetbrains = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TaxaTech CTMS — Prototype",
+  title: "QuidoLabs CTMS — Prototype",
   description:
     "HIPAA-compliant Clinical Trial Management System — prototype with mock data.",
 };

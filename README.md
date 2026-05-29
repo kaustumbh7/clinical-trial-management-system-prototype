@@ -1,4 +1,4 @@
-# TaxaTech CTMS — Prototype
+# QuidoLabs CTMS — Prototype
 
 A runnable, design-grade prototype of the Clinical Trial Management System
 described in [`ctms-proposal.md`](./ctms-proposal.md). The prototype

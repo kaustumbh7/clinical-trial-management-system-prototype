@@ -109,7 +109,7 @@ export default async function ScreenerPage({
             Check my eligibility
           </Button>
           <p className="text-center text-[11px] text-[var(--color-muted)]">
-            By continuing, you agree to share this information with TaxaTech so
+            By continuing, you agree to share this information with QuidoLabs so
             we can determine your eligibility.
           </p>
         </form>
