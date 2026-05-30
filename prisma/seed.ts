@@ -11,6 +11,9 @@ import { generateQrToken } from "../lib/qr";
 async function main() {
   console.log("Resetting DB…");
   await prisma.auditEvent.deleteMany();
+  await prisma.paymentEvent.deleteMany();
+  await prisma.paymentRule.deleteMany();
+  await prisma.budgetLine.deleteMany();
   await prisma.sample.deleteMany();
   await prisma.shipment.deleteMany();
   await prisma.kit.deleteMany();
@@ -143,7 +146,7 @@ async function main() {
     },
   });
 
-  await prisma.soeTaskTemplate.create({
+  const day7Survey = await prisma.soeTaskTemplate.create({
     data: {
       studyId: study.id,
       timepointId: tpDay7.id,
@@ -210,7 +213,7 @@ async function main() {
     },
   });
 
-  await prisma.soeTaskTemplate.create({
+  const closeoutSurvey = await prisma.soeTaskTemplate.create({
     data: {
       studyId: study.id,
       timepointId: tpDay28.id,
@@ -234,6 +237,73 @@ async function main() {
       reminderOffsetDays: 2,
       sortOrder: 12,
     },
+  });
+
+  console.log("Creating payment rules + budget lines…");
+  await prisma.paymentRule.create({
+    data: {
+      studyId: study.id,
+      name: "Baseline visit completed",
+      trigger: "TASK_COMPLETED",
+      templateId: baselineSurvey.id,
+      amountCents: 2500, // $25
+    },
+  });
+  await prisma.paymentRule.create({
+    data: {
+      studyId: study.id,
+      name: "Day 7 check-in completed",
+      trigger: "TASK_COMPLETED",
+      templateId: day7Survey.id,
+      amountCents: 1500, // $15
+    },
+  });
+  await prisma.paymentRule.create({
+    data: {
+      studyId: study.id,
+      name: "Day 14 sample collection",
+      trigger: "TASK_COMPLETED",
+      templateId: day14SampleTpl.id,
+      amountCents: 3500, // $35
+    },
+  });
+  await prisma.paymentRule.create({
+    data: {
+      studyId: study.id,
+      name: "Closeout survey",
+      trigger: "TASK_COMPLETED",
+      templateId: closeoutSurvey.id,
+      amountCents: 5000, // $50
+    },
+  });
+
+  await prisma.budgetLine.createMany({
+    data: [
+      {
+        studyId: study.id,
+        category: "Participant compensation",
+        description: "Per-task incentives across 120 enrolled participants",
+        plannedCents: 1_440_000, // $14,400 — 120 × $120/participant
+      },
+      {
+        studyId: study.id,
+        category: "Shipping",
+        description: "Outbound + return labels @ ~$12/label",
+        plannedCents: 288_000,
+      },
+      {
+        studyId: study.id,
+        category: "Lab / microbiome sequencing",
+        description: "Sequencing partner cost per returned sample set",
+        plannedCents: 960_000,
+      },
+      {
+        studyId: study.id,
+        category: "Staff",
+        description: "Coordinator + ops hours allocated to the study",
+        plannedCents: 600_000,
+      },
+    ],
   });
 
   console.log("Creating kit inventory…");

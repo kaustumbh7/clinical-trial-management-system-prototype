@@ -31,6 +31,20 @@ export default async function PortalLayout({
           </Link>
           <RoleSwitcher />
         </div>
+        <nav className="mx-auto flex max-w-md gap-1 px-5 pb-2 text-[11px]">
+          <Link
+            href="/portal"
+            className="rounded-md px-2 py-1 text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"
+          >
+            Tasks
+          </Link>
+          <Link
+            href="/portal/payments"
+            className="rounded-md px-2 py-1 text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"
+          >
+            Earnings
+          </Link>
+        </nav>
       </header>
       <div className="mx-auto w-full max-w-md flex-1 px-5 py-6 sm:py-8">
         <div className="mb-5 rounded-lg bg-[var(--color-surface-2)] px-4 py-3 ring-subtle">

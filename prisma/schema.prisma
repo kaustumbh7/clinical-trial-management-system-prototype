@@ -20,6 +20,8 @@ model Study {
   participants Participant[]
   screeners    ScreenerResponse[]
   kitSkus      KitSku[]
+  paymentRules PaymentRule[]
+  budgetLines  BudgetLine[]
 }
 
 model StudyArm {
@@ -70,12 +72,13 @@ model Participant {
   enrolledAt DateTime?
   createdAt  DateTime  @default(now())
 
-  study    Study           @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  arm      StudyArm?       @relation(fields: [armId], references: [id])
-  consents ConsentRecord[]
-  tasks    TaskInstance[]
-  kits     Kit[]
-  samples  Sample[]
+  study         Study           @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  arm           StudyArm?       @relation(fields: [armId], references: [id])
+  consents      ConsentRecord[]
+  tasks         TaskInstance[]
+  kits          Kit[]
+  samples       Sample[]
+  paymentEvents PaymentEvent[]
 
   @@index([studyId, status])
 }
@@ -222,4 +225,59 @@ model Sample {
   participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([participantId])
+}
+
+// ---------------------------------------------------------------------------
+// Money — Payments rules + ledger + Budget (Group B)
+// ---------------------------------------------------------------------------
+
+model PaymentRule {
+  id               String  @id @default(cuid())
+  studyId          String
+  name             String
+  // TASK_COMPLETED | TIMEPOINT_REACHED | KIT_RETURNED
+  trigger          String
+  templateId       String? // if trigger=TASK_COMPLETED, the SoeTaskTemplate id
+  timepointId      String? // if trigger=TIMEPOINT_REACHED
+  amountCents      Int
+  currency         String  @default("USD")
+  settlementGated  Boolean @default(false)
+  active           Boolean @default(true)
+
+  study  Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  events PaymentEvent[]
+}
+
+// Append-only — status transitions are recorded by inserting a *new* row
+// in production. For prototype simplicity we update the row but never delete.
+model PaymentEvent {
+  id            String   @id @default(cuid())
+  participantId String
+  ruleId        String
+  // PENDING | SETTLED | FAILED | VOIDED
+  status        String   @default("PENDING")
+  amountCents   Int
+  currency      String   @default("USD")
+  processorRef  String   @unique // idempotency key for mock Stripe
+  requestedAt   DateTime @default(now())
+  settledAt     DateTime?
+  failureReason String?
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  rule        PaymentRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+
+  @@index([participantId])
+  @@index([ruleId])
+  @@index([status])
+}
+
+model BudgetLine {
+  id           String   @id @default(cuid())
+  studyId      String
+  category     String   // e.g. "Participant compensation", "Shipping", "Lab", "Staff"
+  description  String?
+  plannedCents Int
+  createdAt    DateTime @default(now())
+
+  study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
 }

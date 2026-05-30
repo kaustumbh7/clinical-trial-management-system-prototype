@@ -15,7 +15,7 @@ export default async function SimulatorPage() {
     prisma.taskInstance.count({ where: { status: "COMPLETED" } }),
     prisma.auditEvent.findMany({
       orderBy: { ts: "desc" },
-      take: 10,
+      take: 15,
       where: {
         action: {
           in: [
@@ -28,6 +28,9 @@ export default async function SimulatorPage() {
             "KIT_DELIVERED",
             "KIT_RETURNED",
             "KIT_LOST",
+            "PAYMENT_REQUESTED",
+            "PAYMENT_SETTLED",
+            "PAYMENT_FAILED",
           ],
         },
       },
@@ -71,6 +74,17 @@ export default async function SimulatorPage() {
     await actFireWebhook("sendgrid", "email.bounced", {
       messageId: `mock-${Date.now()}`,
       reason: "mailbox_full",
+    });
+  };
+  const firePaymentSettled = async () => {
+    "use server";
+    // Omit processorRef → engine settles the oldest PENDING event.
+    await actFireWebhook("stripe", "payment.settled", {});
+  };
+  const firePaymentFailed = async () => {
+    "use server";
+    await actFireWebhook("stripe", "payment.failed", {
+      reason: "card_declined",
     });
   };
 
@@ -152,6 +166,18 @@ export default async function SimulatorPage() {
               vendor="SendGrid"
               type="email.bounced"
               action={fireBounce}
+              variant="danger"
+            />
+            <WebhookRow
+              vendor="Stripe"
+              type="payment.settled"
+              action={firePaymentSettled}
+              variant="primary"
+            />
+            <WebhookRow
+              vendor="Stripe"
+              type="payment.failed"
+              action={firePaymentFailed}
               variant="danger"
             />
           </div>

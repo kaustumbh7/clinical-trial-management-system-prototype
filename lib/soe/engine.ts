@@ -2,6 +2,7 @@ import { prisma } from "../db";
 import { appendAudit } from "../audit/log";
 import { materializeTimeline } from "./rules";
 import { getSimNow } from "../sim-clock";
+import { chargeMock } from "../mock-vendors/payments";
 import type { EngineEvent, ActorRef } from "./types";
 
 /**
@@ -94,6 +95,9 @@ async function handleTaskCompleted(event: Extract<EngineEvent, { kind: "TASK_COM
     },
     include: { template: true },
   });
+
+  // Trigger any PaymentRules whose trigger is TASK_COMPLETED + this template
+  await maybeChargeForTaskCompletion(task.participantId, task.templateId, task.participant.studyId);
 
   for (const dep of dependents) {
     await prisma.taskInstance.update({
@@ -233,9 +237,130 @@ async function handleWebhook(event: Extract<EngineEvent, { kind: "WEBHOOK_RECEIV
     await onShippingReturnDelivered(event.payload);
   } else if (event.type === "shipping.lost") {
     await onShippingLost(event.payload);
+  } else if (event.type === "payment.settled") {
+    await onPaymentSettled(event.payload);
+  } else if (event.type === "payment.failed") {
+    await onPaymentFailed(event.payload);
   }
 
   return { ok: true };
+}
+
+async function maybeChargeForTaskCompletion(
+  participantId: string,
+  templateId: string,
+  studyId: string,
+) {
+  const rules = await prisma.paymentRule.findMany({
+    where: {
+      studyId,
+      trigger: "TASK_COMPLETED",
+      templateId,
+      active: true,
+    },
+  });
+  for (const rule of rules) {
+    const charge = await chargeMock({
+      participantId,
+      ruleId: rule.id,
+      amountCents: rule.amountCents,
+      currency: rule.currency,
+    });
+    // Idempotent insert — the processorRef is unique
+    const existing = await prisma.paymentEvent.findUnique({
+      where: { processorRef: charge.processorRef },
+    });
+    if (existing) continue;
+    const event = await prisma.paymentEvent.create({
+      data: {
+        participantId,
+        ruleId: rule.id,
+        amountCents: rule.amountCents,
+        currency: rule.currency,
+        status: "PENDING",
+        processorRef: charge.processorRef,
+        requestedAt: await getSimNow(),
+      },
+    });
+    await appendAudit({
+      actor: sysActor,
+      action: "PAYMENT_REQUESTED",
+      targetType: "PaymentEvent",
+      targetId: event.id,
+      studyId,
+      metadata: {
+        rule: rule.name,
+        amountCents: rule.amountCents,
+        processorRef: charge.processorRef,
+      },
+    });
+  }
+}
+
+async function onPaymentSettled(payload: Record<string, unknown>) {
+  const processorRef =
+    typeof payload.processorRef === "string" ? payload.processorRef : null;
+  // Settle the most-recent PENDING event if no ref provided — useful for demo
+  const event = processorRef
+    ? await prisma.paymentEvent.findUnique({
+        where: { processorRef },
+        include: { rule: true, participant: true },
+      })
+    : await prisma.paymentEvent.findFirst({
+        where: { status: "PENDING" },
+        include: { rule: true, participant: true },
+        orderBy: { requestedAt: "asc" },
+      });
+  if (!event || event.status !== "PENDING") return;
+  const now = await getSimNow();
+  await prisma.paymentEvent.update({
+    where: { id: event.id },
+    data: { status: "SETTLED", settledAt: now },
+  });
+  await appendAudit({
+    actor: sysActor,
+    action: "PAYMENT_SETTLED",
+    targetType: "PaymentEvent",
+    targetId: event.id,
+    studyId: event.rule.studyId,
+    metadata: {
+      rule: event.rule.name,
+      amountCents: event.amountCents,
+      processorRef: event.processorRef,
+    },
+  });
+}
+
+async function onPaymentFailed(payload: Record<string, unknown>) {
+  const processorRef =
+    typeof payload.processorRef === "string" ? payload.processorRef : null;
+  const event = processorRef
+    ? await prisma.paymentEvent.findUnique({
+        where: { processorRef },
+        include: { rule: true },
+      })
+    : await prisma.paymentEvent.findFirst({
+        where: { status: "PENDING" },
+        include: { rule: true },
+        orderBy: { requestedAt: "asc" },
+      });
+  if (!event || event.status !== "PENDING") return;
+  await prisma.paymentEvent.update({
+    where: { id: event.id },
+    data: {
+      status: "FAILED",
+      failureReason:
+        typeof payload.reason === "string" ? payload.reason : "processor_decline",
+    },
+  });
+  await appendAudit({
+    actor: sysActor,
+    action: "PAYMENT_FAILED",
+    targetType: "PaymentEvent",
+    targetId: event.id,
+    studyId: event.rule.studyId,
+    metadata: { rule: event.rule.name, reason: payload.reason ?? null },
+  });
 }
 
 async function onShippingDelivered(payload: Record<string, unknown>) {

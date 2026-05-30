@@ -118,6 +118,20 @@ export default async function StudyDetailPage({
           >
             Inventory
           </Button>
+          <Button
+            href={`/admin/studies/${study.id}/payments`}
+            variant="secondary"
+            size="sm"
+          >
+            Payments
+          </Button>
+          <Button
+            href={`/admin/studies/${study.id}/budget`}
+            variant="secondary"
+            size="sm"
+          >
+            Budget
+          </Button>
           <Button href="/admin/sim" size="sm">
             Simulator →
           </Button>
