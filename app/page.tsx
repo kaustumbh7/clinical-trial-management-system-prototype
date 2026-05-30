@@ -13,7 +13,9 @@ export default async function LandingPage() {
     }),
     prisma.participant.findFirst({
       where: { status: { in: ["SCREENED", "CONSENTED", "ENROLLED"] } },
-      orderBy: { createdAt: "asc" },
+      // Most-recently-touched participant — so a newly enrolled person
+      // (e.g. via the screener) surfaces here for the next demo step.
+      orderBy: { createdAt: "desc" },
     }),
   ]);
 
@@ -96,7 +98,7 @@ export default async function LandingPage() {
             title={screenedParticipant?.name ?? leadParticipant?.name ?? "—"}
             subtitle={
               screenedParticipant
-                ? "Screened — needs consent"
+                ? statusSubtitle(screenedParticipant.status)
                 : leadParticipant
                 ? "Lead — fresh recruit"
                 : "No participants seeded"
@@ -247,4 +249,21 @@ function Pillar({
       </p>
     </div>
   );
+}
+
+function statusSubtitle(status: string): string {
+  switch (status) {
+    case "SCREENED":
+      return "Screened — needs consent";
+    case "CONSENTED":
+      return "Consented — timeline running";
+    case "ENROLLED":
+      return "Enrolled — active participant";
+    case "COMPLETED":
+      return "Completed the study";
+    case "WITHDRAWN":
+      return "Withdrawn";
+    default:
+      return status;
+  }
 }
