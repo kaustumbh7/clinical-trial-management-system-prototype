@@ -160,6 +160,13 @@ export default async function StudyDetailPage({
           >
             Assignments
           </Button>
+          <Button
+            href={`/admin/studies/${study.id}/communications`}
+            variant="secondary"
+            size="sm"
+          >
+            Communications
+          </Button>
           <Button href="/admin/sim" size="sm">
             Simulator →
           </Button>

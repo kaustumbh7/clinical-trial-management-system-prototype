@@ -3,6 +3,7 @@ import { appendAudit } from "../audit/log";
 import { materializeTimeline } from "./rules";
 import { getSimNow } from "../sim-clock";
 import { chargeMock } from "../mock-vendors/payments";
+import { sendMessage } from "../mock-vendors/messages";
 import type { EngineEvent, ActorRef } from "./types";
 
 /**
@@ -184,6 +185,35 @@ async function handleClockTick(event: Extract<EngineEvent, { kind: "CLOCK_TICK" 
     const offsetDays = t.template.reminderOffsetDays ?? 0;
     const reminderAt = new Date(t.dueAt.getTime() + offsetDays * 24 * 60 * 60 * 1000);
     if (reminderAt <= newDate && reminderAt > previousDate) {
+      // Write a real Message row using the participant's study templates
+      // when available; otherwise fall back to a default body.
+      const reminderTpl = await prisma.messageTemplate.findFirst({
+        where: {
+          studyId: t.participant.studyId,
+          channel: "EMAIL",
+          name: { contains: "Reminder" },
+          active: true,
+        },
+      });
+      const vars = {
+        participant_first: t.participant.name.split(" ")[0] ?? t.participant.name,
+        task_name: t.template.name,
+        due_date: t.dueAt.toISOString().slice(0, 10),
+      };
+      const msg = await sendMessage({
+        studyId: t.participant.studyId,
+        participantId: t.participantId,
+        templateId: reminderTpl?.id,
+        channel: "EMAIL",
+        toAddress: t.participant.email,
+        subject:
+          reminderTpl?.subject ?? `Reminder: {{task_name}} due {{due_date}}`,
+        body:
+          reminderTpl?.body ??
+          "Hi {{participant_first}}, just a reminder to complete \"{{task_name}}\" — it's due on {{due_date}}.",
+        variables: vars,
+        now: newDate,
+      });
       await appendAudit({
         actor: sysActor,
         action: "REMINDER_SENT",
@@ -192,8 +222,9 @@ async function handleClockTick(event: Extract<EngineEvent, { kind: "CLOCK_TICK" 
         studyId: t.participant.studyId,
         metadata: {
           templateName: t.template.name,
-          channel: "email+sms",
+          channel: "EMAIL",
           to: t.participant.email,
+          messageId: msg.id,
         },
       });
       remindersSent++;
@@ -241,9 +272,53 @@ async function handleWebhook(event: Extract<EngineEvent, { kind: "WEBHOOK_RECEIV
     await onPaymentSettled(event.payload);
   } else if (event.type === "payment.failed") {
     await onPaymentFailed(event.payload);
+  } else if (event.type === "email.delivered" || event.type === "sms.delivered") {
+    await onMessageDelivered(event.payload);
+  } else if (event.type === "email.bounced") {
+    await onMessageBounced(event.payload);
   }
 
   return { ok: true };
+}
+
+async function onMessageDelivered(payload: Record<string, unknown>) {
+  const vendorRef =
+    (typeof payload.vendorRef === "string" && payload.vendorRef) ||
+    (typeof payload.messageId === "string" && payload.messageId) ||
+    null;
+  const msg = vendorRef
+    ? await prisma.message.findUnique({ where: { vendorRef } })
+    : await prisma.message.findFirst({
+        where: { status: "SENT" },
+        orderBy: { sentAt: "desc" },
+      });
+  if (!msg || msg.status === "DELIVERED") return;
+  await prisma.message.update({
+    where: { id: msg.id },
+    data: { status: "DELIVERED", deliveredAt: await getSimNow() },
+  });
+}
+
+async function onMessageBounced(payload: Record<string, unknown>) {
+  const vendorRef =
+    (typeof payload.vendorRef === "string" && payload.vendorRef) ||
+    (typeof payload.messageId === "string" && payload.messageId) ||
+    null;
+  const msg = vendorRef
+    ? await prisma.message.findUnique({ where: { vendorRef } })
+    : await prisma.message.findFirst({
+        where: { status: "SENT" },
+        orderBy: { sentAt: "desc" },
+      });
+  if (!msg) return;
+  await prisma.message.update({
+    where: { id: msg.id },
+    data: {
+      status: "BOUNCED",
+      failureReason:
+        typeof payload.reason === "string" ? payload.reason : "bounced",
+    },
+  });
 }
 
 async function maybeChargeForTaskCompletion(

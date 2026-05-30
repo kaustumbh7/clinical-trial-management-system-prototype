@@ -11,6 +11,8 @@ import { generateQrToken } from "../lib/qr";
 async function main() {
   console.log("Resetting DB…");
   await prisma.auditEvent.deleteMany();
+  await prisma.message.deleteMany();
+  await prisma.messageTemplate.deleteMany();
   await prisma.internalNote.deleteMany();
   await prisma.staffAssignment.deleteMany();
   await prisma.staffUser.deleteMany();
@@ -340,6 +342,33 @@ async function main() {
       threshold: 12,
       expiryAt: new Date("2027-12-01"),
     },
+  });
+
+  console.log("Creating message templates…");
+  await prisma.messageTemplate.createMany({
+    data: [
+      {
+        studyId: study.id,
+        channel: "EMAIL",
+        name: "Welcome — first task ready",
+        subject: "Welcome to {{study_code}} — your first task is ready",
+        body: "Hi {{participant_first}},\n\nThanks for joining. Your first task is waiting in the portal:\n\n→ {{task_name}}\n\nWe&apos;ll send a reminder a day before each due date.",
+      },
+      {
+        studyId: study.id,
+        channel: "EMAIL",
+        name: "Reminder — task due soon",
+        subject: "Reminder: {{task_name}} due {{due_date}}",
+        body: "Hi {{participant_first}},\n\nQuick reminder — \"{{task_name}}\" is due on {{due_date}}. It takes only a few minutes.\n\nOpen the portal to complete it.",
+      },
+      {
+        studyId: study.id,
+        channel: "SMS",
+        name: "Reminder — SMS",
+        subject: null,
+        body: "QuidoLabs: \"{{task_name}}\" is due {{due_date}}. Open the portal to complete it.",
+      },
+    ],
   });
 
   console.log("Creating staff directory…");

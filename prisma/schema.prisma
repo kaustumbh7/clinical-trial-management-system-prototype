@@ -14,18 +14,20 @@ model Study {
   status    String   @default("ACTIVE") // DRAFT | ACTIVE | CLOSED
   createdAt DateTime @default(now())
 
-  arms          StudyArm[]
-  timepoints    Timepoint[]
-  templates     SoeTaskTemplate[]
-  participants  Participant[]
-  screeners     ScreenerResponse[]
-  kitSkus       KitSku[]
-  paymentRules  PaymentRule[]
-  budgetLines   BudgetLine[]
-  aeTemplates   AeReportTemplate[]
-  adverseEvents AdverseEvent[]
-  appointments  Appointment[]
-  regDocs       RegulatoryDocument[]
+  arms             StudyArm[]
+  timepoints       Timepoint[]
+  templates        SoeTaskTemplate[]
+  participants     Participant[]
+  screeners        ScreenerResponse[]
+  kitSkus          KitSku[]
+  paymentRules     PaymentRule[]
+  budgetLines      BudgetLine[]
+  aeTemplates      AeReportTemplate[]
+  adverseEvents    AdverseEvent[]
+  appointments     Appointment[]
+  regDocs          RegulatoryDocument[]
+  messageTemplates MessageTemplate[]
+  messages         Message[]
 }
 
 model StudyArm {
@@ -86,6 +88,7 @@ model Participant {
   adverseEvents    AdverseEvent[]
   appointments     Appointment[]
   staffAssignments StaffAssignment[]
+  messages         Message[]
 
   @@index([studyId, status])
 }
@@ -380,6 +383,51 @@ model StaffAssignment {
 
   @@unique([participantId, staffId, role])
   @@index([staffId])
+}
+
+// ---------------------------------------------------------------------------
+// Communications — templates + outbound message history (Group E)
+// ---------------------------------------------------------------------------
+
+model MessageTemplate {
+  id        String   @id @default(cuid())
+  studyId   String
+  // EMAIL | SMS
+  channel   String
+  name      String
+  subject   String?
+  body      String
+  variables String?  // JSON array of variable names referenced in subject/body
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  study    Study     @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  messages Message[]
+}
+
+model Message {
+  id            String   @id @default(cuid())
+  studyId       String
+  participantId String?
+  templateId    String?
+  channel       String   // EMAIL | SMS
+  toAddress     String
+  subject       String?
+  body          String
+  // QUEUED | SENT | DELIVERED | BOUNCED | FAILED
+  status        String   @default("QUEUED")
+  vendorRef     String?  @unique
+  sentAt        DateTime?
+  deliveredAt   DateTime?
+  failureReason String?
+  createdAt     DateTime @default(now())
+
+  study       Study             @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  participant Participant?      @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  template    MessageTemplate?  @relation(fields: [templateId], references: [id])
+
+  @@index([studyId, createdAt])
+  @@index([participantId])
 }
 
 model InternalNote {
