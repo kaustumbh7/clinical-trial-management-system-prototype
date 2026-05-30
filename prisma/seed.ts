@@ -11,6 +11,10 @@ import { generateQrToken } from "../lib/qr";
 async function main() {
   console.log("Resetting DB…");
   await prisma.auditEvent.deleteMany();
+  await prisma.regulatoryDocument.deleteMany();
+  await prisma.appointment.deleteMany();
+  await prisma.adverseEvent.deleteMany();
+  await prisma.aeReportTemplate.deleteMany();
   await prisma.paymentEvent.deleteMany();
   await prisma.paymentRule.deleteMany();
   await prisma.budgetLine.deleteMany();
@@ -332,6 +336,62 @@ async function main() {
       quantityOnHand: 9, // intentionally below threshold for the demo
       threshold: 12,
       expiryAt: new Date("2027-12-01"),
+    },
+  });
+
+  console.log("Creating AE report template + regulatory docs…");
+  await prisma.aeReportTemplate.create({
+    data: {
+      studyId: study.id,
+      name: "Standard skin-tolerance AE report (v1)",
+      autoStreamPause: true,
+      fields: JSON.stringify([
+        { key: "onset", label: "When did it start?", type: "text" },
+        {
+          key: "symptoms",
+          label: "What are you experiencing?",
+          type: "select",
+          options: ["Itching", "Redness", "Burning", "Rash", "Swelling", "Other"],
+        },
+        {
+          key: "stoppedProduct",
+          label: "Have you stopped using the study product?",
+          type: "select",
+          options: ["Yes", "No", "N/A"],
+        },
+      ]),
+    },
+  });
+
+  await prisma.regulatoryDocument.create({
+    data: {
+      studyId: study.id,
+      type: "IRB",
+      title: "IRB approval letter",
+      version: "v1.0",
+      filePath: "mock-docs/seed-irb-approval.txt",
+      uploadedBy: "seed",
+      notes: "Initial IRB approval issued 2026-05-01.",
+    },
+  });
+  await prisma.regulatoryDocument.create({
+    data: {
+      studyId: study.id,
+      type: "PROTOCOL",
+      title: "Study protocol",
+      version: "v1.0",
+      filePath: "mock-docs/seed-protocol-v1.txt",
+      uploadedBy: "seed",
+    },
+  });
+  await prisma.regulatoryDocument.create({
+    data: {
+      studyId: study.id,
+      type: "CONSENT_TEMPLATE",
+      title: "Informed consent template",
+      version: "v1.0",
+      filePath: "mock-docs/seed-consent-v1.txt",
+      uploadedBy: "seed",
     },
   });
 

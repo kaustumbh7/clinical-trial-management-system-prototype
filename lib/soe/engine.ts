@@ -507,6 +507,91 @@ async function handleManualOverride(
   return { ok: true };
 }
 
+/**
+ * Pause the participant's currently-pending/due survey + appointment tasks
+ * when a SERIOUS adverse event with autoStreamPause is reported. Original
+ * status is preserved in the task's `payload` JSON so the engine can
+ * restore on AE resolution.
+ */
+export async function pauseStreamForAe(
+  participantId: string,
+  aeId: string,
+  studyId: string,
+) {
+  const tasks = await prisma.taskInstance.findMany({
+    where: {
+      participantId,
+      status: { in: ["PENDING", "DUE"] },
+      template: { kind: { in: ["SURVEY", "VISIT", "SAMPLE_COLLECT"] } },
+    },
+  });
+  for (const t of tasks) {
+    const prev = JSON.parse(t.payload ?? "{}") as Record<string, unknown>;
+    await prisma.taskInstance.update({
+      where: { id: t.id },
+      data: {
+        status: "SKIPPED",
+        payload: JSON.stringify({
+          ...prev,
+          stream_pause: { prevStatus: t.status, aeId, pausedAt: new Date().toISOString() },
+        }),
+      },
+    });
+  }
+  await appendAudit({
+    actor: sysActor,
+    action: "STREAM_PAUSED",
+    targetType: "Participant",
+    targetId: participantId,
+    studyId,
+    metadata: { aeId, tasksPaused: tasks.length },
+  });
+  return { tasksPaused: tasks.length };
+}
+
+/**
+ * Restore tasks that were stream-paused by a specific AE.
+ */
+export async function resumeStreamFromAe(
+  participantId: string,
+  aeId: string,
+  studyId: string,
+) {
+  const tasks = await prisma.taskInstance.findMany({
+    where: { participantId, status: "SKIPPED" },
+  });
+  let resumed = 0;
+  for (const t of tasks) {
+    const payload = JSON.parse(t.payload ?? "{}") as {
+      stream_pause?: { prevStatus: string; aeId: string };
+    };
+    if (payload.stream_pause?.aeId !== aeId) continue;
+    const prevStatus = payload.stream_pause.prevStatus as
+      | "PENDING"
+      | "DUE";
+    delete payload.stream_pause;
+    await prisma.taskInstance.update({
+      where: { id: t.id },
+      data: {
+        status: prevStatus,
+        payload: Object.keys(payload).length
+          ? JSON.stringify(payload)
+          : null,
+      },
+    });
+    resumed++;
+  }
+  await appendAudit({
+    actor: sysActor,
+    action: "STREAM_RESUMED",
+    targetType: "Participant",
+    targetId: participantId,
+    studyId,
+    metadata: { aeId, tasksResumed: resumed },
+  });
+  return { tasksResumed: resumed };
+}
+
 export async function advanceSimClock(targetDate: Date, actorLabel: string) {
   const clock = await prisma.simClock.upsert({
     where: { id: "singleton" },

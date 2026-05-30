@@ -39,10 +39,22 @@ export default async function PortalLayout({
             Tasks
           </Link>
           <Link
+            href="/portal/appointments"
+            className="rounded-md px-2 py-1 text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"
+          >
+            Visits
+          </Link>
+          <Link
             href="/portal/payments"
             className="rounded-md px-2 py-1 text-[var(--color-ink-2)] hover:bg-[var(--color-surface-2)]"
           >
             Earnings
+          </Link>
+          <Link
+            href="/portal/ae/new"
+            className="ml-auto rounded-md px-2 py-1 text-[var(--color-status-overdue)] hover:bg-[var(--color-status-overdue-soft)]"
+          >
+            Report a problem
           </Link>
         </nav>
       </header>

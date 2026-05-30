@@ -14,14 +14,18 @@ model Study {
   status    String   @default("ACTIVE") // DRAFT | ACTIVE | CLOSED
   createdAt DateTime @default(now())
 
-  arms         StudyArm[]
-  timepoints   Timepoint[]
-  templates    SoeTaskTemplate[]
-  participants Participant[]
-  screeners    ScreenerResponse[]
-  kitSkus      KitSku[]
-  paymentRules PaymentRule[]
-  budgetLines  BudgetLine[]
+  arms          StudyArm[]
+  timepoints    Timepoint[]
+  templates     SoeTaskTemplate[]
+  participants  Participant[]
+  screeners     ScreenerResponse[]
+  kitSkus       KitSku[]
+  paymentRules  PaymentRule[]
+  budgetLines   BudgetLine[]
+  aeTemplates   AeReportTemplate[]
+  adverseEvents AdverseEvent[]
+  appointments  Appointment[]
+  regDocs       RegulatoryDocument[]
 }
 
 model StudyArm {
@@ -72,13 +76,15 @@ model Participant {
   enrolledAt DateTime?
   createdAt  DateTime  @default(now())
 
-  study         Study           @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  arm           StudyArm?       @relation(fields: [armId], references: [id])
-  consents      ConsentRecord[]
-  tasks         TaskInstance[]
-  kits          Kit[]
-  samples       Sample[]
-  paymentEvents PaymentEvent[]
+  study          Study           @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  arm            StudyArm?       @relation(fields: [armId], references: [id])
+  consents       ConsentRecord[]
+  tasks          TaskInstance[]
+  kits           Kit[]
+  samples        Sample[]
+  paymentEvents  PaymentEvent[]
+  adverseEvents  AdverseEvent[]
+  appointments   Appointment[]
 
   @@index([studyId, status])
 }
@@ -280,4 +286,88 @@ model BudgetLine {
   createdAt    DateTime @default(now())
 
   study Study @relation(fields: [studyId], references: [id], onDelete: Cascade)
+}
+
+// ---------------------------------------------------------------------------
+// Clinical Operations — AE, Appointments, Regulatory Docs (Group C)
+// ---------------------------------------------------------------------------
+
+model AeReportTemplate {
+  id               String  @id @default(cuid())
+  studyId          String
+  name             String
+  fields           String  // JSON-stringified field schema (label, type, options)
+  autoStreamPause  Boolean @default(true)
+  active           Boolean @default(true)
+  createdAt        DateTime @default(now())
+
+  study  Study          @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  events AdverseEvent[]
+}
+
+model AdverseEvent {
+  id            String   @id @default(cuid())
+  studyId       String
+  participantId String
+  templateId    String
+  // MILD | MODERATE | SERIOUS
+  severity      String
+  // REPORTED | TRIAGED | RESOLVED | CLOSED
+  status        String   @default("REPORTED")
+  fields        String   // JSON-stringified participant answers
+  photoPaths    String?  // JSON array of paths
+  summary       String?
+  reportedAt    DateTime @default(now())
+  triagedAt     DateTime?
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+  resolution    String?
+
+  study       Study             @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  participant Participant       @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  template    AeReportTemplate  @relation(fields: [templateId], references: [id])
+
+  @@index([studyId, status])
+  @@index([participantId])
+}
+
+model Appointment {
+  id            String   @id @default(cuid())
+  studyId       String
+  participantId String
+  // IN_PERSON | E_VISIT | VIDEO — VIDEO reserved as the telehealth seam, not implemented yet
+  modality      String
+  scheduledAt   DateTime
+  durationMin   Int      @default(30)
+  staffLabel    String?
+  // SCHEDULED | COMPLETED | CANCELED | NO_SHOW
+  status        String   @default("SCHEDULED")
+  notes         String?
+  joinUrl       String?
+  createdAt     DateTime @default(now())
+
+  study       Study       @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+
+  @@index([studyId, scheduledAt])
+}
+
+model RegulatoryDocument {
+  id           String   @id @default(cuid())
+  studyId      String
+  // IRB | PROTOCOL | CONSENT_TEMPLATE | SOP | OTHER
+  type         String
+  title        String
+  version      String   @default("v1.0")
+  supersedesId String?
+  filePath     String
+  uploadedBy   String?
+  uploadedAt   DateTime @default(now())
+  notes        String?
+
+  study      Study                @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  supersedes RegulatoryDocument?  @relation("DocChain", fields: [supersedesId], references: [id])
+  supersedeBy RegulatoryDocument[] @relation("DocChain")
+
+  @@index([studyId, type])
 }
