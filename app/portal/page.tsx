@@ -15,6 +15,9 @@ export default async function PortalHome() {
       where: { id: role.participantId },
       include: {
         tasks: {
+          // Staff-actioned task kinds aren't shown in the participant
+          // portal — they live in admin queues instead.
+          where: { template: { kind: { notIn: ["KIT_SHIP"] } } },
           include: { template: { include: { timepoint: true } } },
           orderBy: { dueAt: "asc" },
         },

@@ -6,7 +6,7 @@ import { prisma } from "@/lib/db";
 import { getRole } from "@/lib/auth/role";
 import { generateSignedConsent } from "@/lib/mock-vendors/esign";
 import { appendAudit } from "@/lib/audit/log";
-import { enrollParticipant } from "@/lib/soe/engine";
+import { enrollParticipant, handleEvent } from "@/lib/soe/engine";
 import { materializeConsentTask } from "@/lib/soe/rules";
 import { getSimNow } from "@/lib/sim-clock";
 
@@ -68,20 +68,30 @@ export async function actSignConsent(formData: FormData) {
     data: { status: "CONSENTED" },
   });
 
-  // Mark the consent task (if present) as completed
-  await prisma.taskInstance.updateMany({
+  // Materialise the timeline first so dependents exist as rows the engine
+  // can flip when it sees the consent task complete.
+  await enrollParticipant(participant.id, now, {
+    kind: "SYSTEM",
+    label: "consent-flow",
+  });
+
+  // Now complete the consent task through the engine. handleTaskCompleted
+  // activates any COMPLETION-triggered task that depended on consent —
+  // e.g. the baseline survey — moving it from PENDING to DUE.
+  const consentTask = await prisma.taskInstance.findFirst({
     where: {
       participantId: participant.id,
       template: { kind: "CONSENT" },
       status: { in: ["DUE", "PENDING"] },
     },
-    data: { status: "COMPLETED", completedAt: now },
   });
-
-  await enrollParticipant(participant.id, now, {
-    kind: "SYSTEM",
-    label: "consent-flow",
-  });
+  if (consentTask) {
+    await handleEvent({
+      kind: "TASK_COMPLETED",
+      taskId: consentTask.id,
+      actorLabel: participant.name,
+    });
+  }
 
   revalidatePath("/portal", "layout");
   revalidatePath("/admin", "layout");
