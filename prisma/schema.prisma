@@ -76,15 +76,16 @@ model Participant {
   enrolledAt DateTime?
   createdAt  DateTime  @default(now())
 
-  study          Study           @relation(fields: [studyId], references: [id], onDelete: Cascade)
-  arm            StudyArm?       @relation(fields: [armId], references: [id])
-  consents       ConsentRecord[]
-  tasks          TaskInstance[]
-  kits           Kit[]
-  samples        Sample[]
-  paymentEvents  PaymentEvent[]
-  adverseEvents  AdverseEvent[]
-  appointments   Appointment[]
+  study            Study              @relation(fields: [studyId], references: [id], onDelete: Cascade)
+  arm              StudyArm?          @relation(fields: [armId], references: [id])
+  consents         ConsentRecord[]
+  tasks            TaskInstance[]
+  kits             Kit[]
+  samples          Sample[]
+  paymentEvents    PaymentEvent[]
+  adverseEvents    AdverseEvent[]
+  appointments     Appointment[]
+  staffAssignments StaffAssignment[]
 
   @@index([studyId, status])
 }
@@ -350,6 +351,50 @@ model Appointment {
   participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
 
   @@index([studyId, scheduledAt])
+}
+
+// ---------------------------------------------------------------------------
+// Staff directory + assignment + internal notes (Group D)
+// ---------------------------------------------------------------------------
+
+model StaffUser {
+  id    String @id @default(cuid())
+  name  String
+  email String @unique
+  // PI | COORDINATOR | OPS | FINANCE | AUDITOR | READONLY
+  role  String
+
+  assignments StaffAssignment[]
+  notes       InternalNote[]
+}
+
+model StaffAssignment {
+  id            String @id @default(cuid())
+  participantId String
+  staffId       String
+  // PRIMARY_COORDINATOR | BACKUP | INVESTIGATOR
+  role          String @default("PRIMARY_COORDINATOR")
+
+  participant Participant @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  staff       StaffUser   @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@unique([participantId, staffId, role])
+  @@index([staffId])
+}
+
+model InternalNote {
+  id           String   @id @default(cuid())
+  targetType   String   // Participant | Kit | AdverseEvent | Appointment | PaymentEvent | Study
+  targetId     String
+  authorId     String
+  body         String
+  mentions     String?  // JSON array of staff ids
+  createdAt    DateTime @default(now())
+  resolvedAt   DateTime?
+
+  author StaffUser @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([targetType, targetId])
 }
 
 model RegulatoryDocument {

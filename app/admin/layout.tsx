@@ -29,6 +29,7 @@ export default async function AdminLayout({
           <span className="hidden md:inline-block h-4 w-px bg-[var(--color-border-strong)]" />
           <nav className="hidden md:flex items-center gap-1 text-[13px]">
             <NavLink href="/admin">Dashboard</NavLink>
+            <NavLink href="/admin/staff">Staff</NavLink>
             <NavLink href="/admin/audit">Audit log</NavLink>
             <NavLink href="/admin/sim">Simulator</NavLink>
           </nav>

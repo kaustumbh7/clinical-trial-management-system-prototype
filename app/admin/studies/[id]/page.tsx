@@ -153,6 +153,13 @@ export default async function StudyDetailPage({
           >
             Regulatory
           </Button>
+          <Button
+            href={`/admin/studies/${study.id}/assignments`}
+            variant="secondary"
+            size="sm"
+          >
+            Assignments
+          </Button>
           <Button href="/admin/sim" size="sm">
             Simulator →
           </Button>

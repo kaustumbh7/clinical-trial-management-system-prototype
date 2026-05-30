@@ -11,6 +11,9 @@ import { generateQrToken } from "../lib/qr";
 async function main() {
   console.log("Resetting DB…");
   await prisma.auditEvent.deleteMany();
+  await prisma.internalNote.deleteMany();
+  await prisma.staffAssignment.deleteMany();
+  await prisma.staffUser.deleteMany();
   await prisma.regulatoryDocument.deleteMany();
   await prisma.appointment.deleteMany();
   await prisma.adverseEvent.deleteMany();
@@ -337,6 +340,17 @@ async function main() {
       threshold: 12,
       expiryAt: new Date("2027-12-01"),
     },
+  });
+
+  console.log("Creating staff directory…");
+  await prisma.staffUser.createMany({
+    data: [
+      { name: "Dr. Luma Reyes", email: "luma@quidolabs.example", role: "PI" },
+      { name: "Sam Okafor", email: "sam@quidolabs.example", role: "COORDINATOR" },
+      { name: "Mira Vance", email: "mira@quidolabs.example", role: "COORDINATOR" },
+      { name: "Diego Park", email: "diego@quidolabs.example", role: "OPS" },
+      { name: "Robin Patel", email: "robin@quidolabs.example", role: "FINANCE" },
+    ],
   });
 
   console.log("Creating AE report template + regulatory docs…");

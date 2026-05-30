@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { Card, CardHeader } from "@/components/ui/Card";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { getSimNow } from "@/lib/sim-clock";
+import { InternalNoteThread } from "@/components/InternalNoteThread";
 
 export default async function ParticipantDetailPage({
   params,
@@ -200,6 +201,12 @@ export default async function ParticipantDetailPage({
               </ul>
             </Card>
           )}
+
+          <InternalNoteThread
+            targetType="Participant"
+            targetId={participant.id}
+            revalidate={`/admin/studies/${studyId}/participants/${pid}`}
+          />
 
           <Card variant="warm">
             <CardHeader title="Audit trail" hint="All events for this participant" />
