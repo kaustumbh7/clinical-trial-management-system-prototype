@@ -1,9 +1,7 @@
 # QuidoLabs CTMS — Demo Recording Script
 
-A ~7-minute walkthrough hitting the moments that prove the architecture:
-the SOE engine is the event spine, every other module either feeds it or
-reacts to it. Each scene has a **URL**, what to **say** (paraphrase
-freely — keep the bolded beats), and what to **click**.
+Read this top-to-bottom. Spoken paragraphs are prose. Stage directions are
+in `[brackets]` between paragraphs — do them and keep reading.
 
 ---
 
@@ -16,276 +14,245 @@ npx tsx prisma/seed.ts
 npm run dev
 ```
 
-**Browser:** fresh incognito window at 1440×900, light mode, 100% zoom.
-Open one tab at `http://localhost:3000`.
+Open `http://localhost:3000` in a fresh incognito window at 100% zoom.
+Hit record when the landing page is on screen.
 
 ---
 
-## Scene 1 — The pitch (~0:00–0:20)
+## SCENE 1 — Opening (~20 sec)
 
-**Where:** `http://localhost:3000`
+`[You're on the landing page at http://localhost:3000]`
 
-**Say:**
-> "QuidoLabs CTMS — a Clinical Trial Management System organised around
-> one idea: the **Schedule of Events is the event spine**. Every module
-> feeds it or reacts to it."
+This is QuidoLabs CTMS — a clinical trial management system built around one architectural idea. The Schedule of Events — the SOE — is the event spine of the platform. Every module either feeds events into it, or reacts to events coming out of it. Today I'll run a full participant through the platform, end to end.
 
-**Click:** "Public screener" (bottom-right of the landing).
+`[Click the "Public screener" button at the bottom-right of the landing page]`
 
 ---
 
-## Scene 2 — Screener → consent → timeline materializes (~0:20–2:00)
+## SCENE 2 — Recruitment, consent, and the timeline materialising (~90 sec)
 
-**Where:** `/screener/<studyId>`
+`[You're at /screener/<studyId>]`
 
-**Say:**
-> "Recruitment starts here. Public eligibility screener, predicate
-> qualification, capacity-aware waitlist. No login."
+Recruitment starts here, with a public eligibility screener. No login. The questions feed a predicate evaluator that decides if someone qualifies, gets disqualified, or lands on a capacity-aware waitlist.
 
-**Fill quickly:**
-- Name: `Riley Kim` / Email: `riley.kim@example.com` / Age: `32`
-- Lives in US: **Yes** · Daily deodorant: **Yes** · Sensitive: **No** · Allergy: **No**
+`[Fill the form:
+  Name: Riley Kim
+  Email: riley.kim@example.com
+  Age: 32
+  Lives in US: Yes
+  Daily deodorant: Yes
+  Sensitive skin: No
+  Allergy: No]`
 
-**Click:** "Check my eligibility" — you're auto-signed-in as Riley.
+`[Click "Check my eligibility"]`
 
-**Where:** `/portal`
+Riley qualifies. The platform auto-creates her participant record, allocates her to an arm with capacity, and signs her in.
 
-**Say:**
-> "Signed in as Riley. **No tasks exist yet** — the engine waits for
-> consent before materialising the timeline."
+`[You're now at /portal as Riley]`
 
-**Click:** "Review & sign consent"
+Here's her portal. Mobile-first — every screen works on a phone too. And notice — there are no tasks yet. The engine deliberately waits for consent before materialising the timeline.
 
-**Where:** `/portal/consent`
+`[Click "Review & sign consent"]`
 
-**Say:**
-> "Typed signature, agreement, immutable consent record."
+Consent is the IRB-approved version 1.0. Typed signature, agreement checkbox, and behind the scenes a placeholder PDF gets written to encrypted storage with an immutable audit record.
 
-**Action:** Check the agreement box → click **"Sign & enroll"**.
+`[The name field is already pre-filled. Tick the agreement checkbox.]`
 
-You'll land back on `/portal` with a **full timeline**.
+`[Click "Sign & enroll"]`
 
-**Say:**
-> "There it is. Signing consent fired `enrollParticipant` into the
-> engine, which materialised every task — baseline, Day 7, Day 14,
-> Day 28 — in one transaction."
+`[You'll redirect back to /portal — and now there's a full task timeline]`
 
----
-
-## Scene 3 — Complete a task, switch to admin (~2:00–3:00)
-
-**Click:** "Baseline Skin Diary" (top DUE task) → **"Complete task"**.
-
-Back at `/portal`: notice "Watch: How to Apply Study Product" just
-turned DUE.
-
-**Say:**
-> "That dependent task unlocked the moment baseline was completed — a
-> COMPLETION trigger in the SOE."
-
-**Action:** **Switch role** (top-right) → on landing, click **"Principal
-Investigator"** card.
-
-**Where:** `/admin/studies/<id>`
-
-**Say:**
-> "Same data, different perspective. The funnel shows Riley's just
-> enrolled."
-
-**Click:** Riley's name in the participants list.
-
-**Where:** `/admin/studies/<id>/participants/<pid>`
-
-Scroll briefly through her timeline + consent record + audit trail.
-
-**Say:**
-> "Materialised timeline, consent with the signed PDF, and an
-> **append-only audit trail** of every state change."
+There it is — the moment that makes this prototype interesting. Signing consent fired `enrollParticipant` into the engine. The engine ran `materializeTimeline`, which generated every task instance from the study's SOE template, anchored to today's enrollment date. Day zero baseline, Day 7, Day 14, Day 28 closeout — all created in one transaction, all wired to their respective triggers.
 
 ---
 
-## Scene 4 — Kit lifecycle (~3:00–5:00)
+## SCENE 3 — Completing a task, then switching to admin (~60 sec)
 
-The headline differentiator vs. Jeeva. Take your time here.
+`[Click the "Baseline Skin Diary" card at the top of the task list]`
 
-**Click:** **"← DEO-24A"** breadcrumb → then **"Kits"** button.
+Each task has a kind, a trigger, a due date, a status. Completing one task can unlock the next through a COMPLETION trigger — let me show you what I mean.
 
-**Where:** `/admin/studies/<id>/kits`
+`[Click the "Complete task" button at the bottom of the page]`
 
-**Say:**
-> "Riley needs a kit shipped. She enrolled with a DUE `KIT_SHIP` task —
-> she shows up in 'awaiting kit'."
+`[You're back at /portal]`
 
-**Click:** **"Allocate & ship"** next to Riley.
+Watch the task list. The instructional video task just turned from PENDING into DUE. It depended on the baseline survey through a COMPLETION trigger — the engine activated it the moment baseline was completed. The participant just does the irreducible action. Everything else flows from engine state.
 
-**Say:**
-> "One click. Inventory decremented from the lowest non-empty lot, QR
-> token minted, mock carrier label generated, KIT_SHIP task completed."
+`[Click "Switch role" in the top-right header. You'll land back at the landing page]`
 
-**Click:** **"Simulator"** in the top nav.
+`[Click the "Principal Investigator" card — Dr. Luma Reyes]`
 
-**Where:** `/admin/sim`
+`[You're now at /admin/studies/<id>]`
 
-**Say:**
-> "The simulator fires what would be real vendor webhooks in production.
-> Same engine code path either way."
+Same platform, different perspective. As a PI, I see the participant funnel — leads, screened, consented, enrolled, completed. Riley is in there with one task already completed.
 
-**Action:** Find Riley's shipment in "Shipments in transit" → click
-**"Simulate delivered"**.
+`[Click on Riley Kim's row in the participants list]`
 
-**Say:**
-> "`shipping.delivered` webhook. The engine looked up the shipment,
-> flipped the kit to DELIVERED, and unlocked Riley's KIT_ACTIVATE task."
+`[You're at the participant detail page]`
 
-**Action:** **Switch role** → click Riley's participant card on the
-landing.
-
-**Where:** `/portal`
-
-You should see **"Activate your kit"** as the top DUE task.
-
-**Click:** the activate task → **"Activate my kit"**.
-
-Back at `/portal`: **"Baseline microbiome swab"** is now DUE (it
-depended on KIT_ACTIVATE).
-
-**Say:**
-> "Kit activated. The sample-collection task unlocked through the same
-> COMPLETION-trigger pattern. The participant only does the irreducible
-> action — every transition flows from the engine."
+Per-participant view. Her materialised task timeline on the left, her signed consent record on the right with a link to the PDF, and an append-only audit trail of every state change that's happened so far.
 
 ---
 
-## Scene 5 — Payments + settlement (~5:00–6:00)
+## SCENE 4 — The kit lifecycle (~2 min)
 
-**Action:** Switch role back to PI. Navigate to the study → click
-**"Payments"**.
+`[Click the "← DEO-24A" breadcrumb to go back to the study dashboard]`
 
-**Where:** `/admin/studies/<id>/payments`
+This next bit is what really separates the platform from the previous tool — full decentralised-trial logistics. Riley needs a physical kit shipped to her, and she'll activate it on arrival with a QR code on the box.
 
-**Say:**
-> "When Riley completed her baseline survey, the engine matched it
-> against a PaymentRule and fired a charge. Pending — settlement comes
-> via webhook."
+`[Click the "Kits" button on the study dashboard]`
 
-Show the **PENDING** event in the ledger.
+`[You're at /admin/studies/<id>/kits]`
 
-**Click:** **"Simulator"** in the top nav → click **"Stripe — payment.settled"** webhook button.
+Riley shows up in "awaiting kit" because she enrolled with a `KIT_SHIP` task that's DUE for the coordinator. One click and the engine handles the whole allocation.
 
-**Say:**
-> "Settlement webhook. Nothing in the SOE advances on hope alone."
+`[Click "Allocate & ship" next to Riley's name]`
 
-**Action:** Click back to **Payments** in the breadcrumbs/header. The
-event is now **SETTLED**. The "Settled" stat at the top has moved up.
+That one click decremented inventory from the lowest non-empty lot, minted a unique QR token for her kit, generated a mock carrier label with a real-looking tracking number, and completed her KIT_SHIP task. Now the kit's in transit.
 
-**Click:** **"Budget"** in the study nav.
+`[Click "Simulator →" in the top nav]`
 
-**Say:**
-> "Budget actuals on participant compensation roll straight off the
-> append-only payments ledger. Settlement *is* the actual."
+`[You're at /admin/sim]`
 
----
+The simulator panel is how we drive vendor webhooks during the demo. In production, these come from real carrier webhooks and real Stripe webhooks — but they hit the exact same engine code paths that these buttons hit.
 
-## Scene 6 — Adverse event auto-pause (~6:00–7:00)
+`[Find Riley's shipment in the "Shipments in transit" section]`
 
-The most architecturally interesting beat. Don't rush.
+`[Click "Simulate delivered" next to it]`
 
-**Action:** Switch role back to Riley → `/portal`.
+A `shipping.delivered` webhook just landed. The engine looked up the shipment by tracking number, flipped the kit's status to DELIVERED, and unlocked Riley's KIT_ACTIVATE task — which had been sitting in PENDING, gated on this exact webhook.
 
-**Click:** the red **"Report a problem"** in the portal nav (top-right).
+`[Click "Switch role" in the top-right]`
 
-**Where:** `/portal/ae/new`
+`[Click Riley's participant card on the landing — she's the one labeled "needs consent" but you've already enrolled her]`
 
-**Action:**
-- Severity: **SERIOUS**
-- Summary: `Redness and itching on application site`
-- Symptoms: **Redness** · Stopped product: **Yes**
-- Click **"Submit report"**.
+`[You're at /portal as Riley]`
 
-Back at `/portal`: **scroll through the task list**.
+Riley's portal now shows "Activate your kit" as her top DUE task — exactly when she'd see it in real life, the day the kit shows up at her door.
 
-**Say:**
-> "Look at her tasks — everything pending is now SKIPPED. Severity was
-> SERIOUS and the AE template has auto-pause enabled, so the engine
-> paused her entire stream. No more reminders until a coordinator
-> resolves this."
+`[Click the "Activate your kit" task]`
 
-**Action:** Switch role back to PI → navigate to **Adverse events** for
-the study.
+Here's the QR token on the kit box. In production she scans it with her phone's camera; here we just tap.
 
-**Where:** `/admin/studies/<id>/ae`
+`[Click "Activate my kit"]`
 
-**Action:**
-- Click **"Triage"** on Riley's report.
-- Type a resolution: `Cleared by Dr. Reyes — resume schedule.`
-- Click **"Resolve"**.
+`[You're back at /portal]`
 
-**Say:**
-> "Resolution restores every paused task to its previous status. The
-> stream resumes automatically."
-
-(Optional verify: switch to Riley → /portal → tasks are back.)
+Now the baseline microbiome swab task is DUE. It depended on KIT_ACTIVATE through the same COMPLETION-trigger pattern. The whole logistics dance — ship, deliver, activate, collect — flows through one engine, one consistent pattern.
 
 ---
 
-## Scene 7 — Close on the audit log (~7:00–7:30)
+## SCENE 5 — Payments and settlement (~60 sec)
 
-**Click:** **"Audit log"** in the top admin nav.
+`[Click "Switch role" → Principal Investigator card]`
 
-**Where:** `/admin/audit`
+`[Click the DEO-24A study tab in the top studies strip, then click "Payments"]`
 
-**Say:**
-> "Everything we just did is here. Enrollment, consent, task completion,
-> kit allocation, shipping webhook, payment requested, payment settled,
-> AE reported, stream paused, AE resolved, stream resumed — every state
-> change in the system, append-only, with actor, action, target, and
-> metadata."
+`[You're at /admin/studies/<id>/payments]`
 
-Scroll through briefly.
+When Riley completed her baseline survey a couple minutes ago, the engine matched it against a payment rule — twenty-five dollars for the baseline visit — and immediately fired an idempotent charge through the mock payment processor. You can see it in the ledger here, status PENDING.
 
-**Say (closing):**
-> "There's more in the prototype — appointments with telehealth seams,
-> regulatory document versioning, staff assignment with @mention notes,
-> templated communications, an editable study creator with clone-config —
-> eighteen of the nineteen modules from the proposal. All running
-> through the same engine, all writing to the same audit log."
+Nothing in the engine advances on hope alone. Settlement comes through a webhook.
+
+`[Click "Simulator" in the top nav]`
+
+`[Click the "Stripe — payment.settled" webhook button]`
+
+That's the settlement webhook from the processor. The engine flipped the oldest PENDING event to SETTLED and emitted an audit row.
+
+`[Click the DEO-24A study tab, then "Payments" again]`
+
+The $25 is now SETTLED. The Settled stat at the top of the page has moved up.
+
+`[Click "Budget" in the study nav]`
+
+Budget actuals on participant compensation roll directly off the append-only payments ledger. There's no separate accounting system — settlement is the actual.
 
 ---
 
-## URL cheat sheet
+## SCENE 6 — Adverse event auto-pause (~90 sec)
 
-| Scene | URL |
-| --- | --- |
-| 1 | `/` |
-| 2 | `/screener/<id>` → `/portal/consent` → `/portal` |
-| 3 | `/portal/tasks/<id>` → `/admin/studies/<id>` → `/participants/<pid>` |
-| 4 | `/admin/studies/<id>/kits` → `/admin/sim` → `/portal` |
-| 5 | `/admin/studies/<id>/payments` → `/admin/sim` → `/budget` |
-| 6 | `/portal/ae/new` → `/admin/studies/<id>/ae` |
-| 7 | `/admin/audit` |
+This next bit is the most architecturally interesting moment. It's worth slowing down for.
+
+`[Click "Switch role"]`
+
+`[Click Riley's participant card on the landing]`
+
+`[You're at /portal]`
+
+If Riley experiences a skin reaction, she taps "Report a problem" up in the corner.
+
+`[Click "Report a problem" — the red link in the top-right of the portal nav]`
+
+`[You're at /portal/ae/new]`
+
+The form is per-study configurable — the questions here come from the AE template the PI set up. She rates severity, writes a quick summary, picks from the template's fields.
+
+`[Click "SERIOUS" for severity]`
+
+`[Type in the summary box: "Redness and itching on application site, getting worse each day"]`
+
+`[Pick "Redness" for the symptoms dropdown, "Yes" for stopped product]`
+
+`[Click "Submit report"]`
+
+`[You're back at /portal — scroll through Riley's task list]`
+
+Look at her task list now. Every survey, visit, and sample collection task that was open is showing SKIPPED. Because severity was SERIOUS and the AE template has auto-pause enabled, the engine paused her entire stream — the previous status of each task is stashed in the payload so it can be restored. No reminders fire while she's waiting for a coordinator to look at this. The system gets out of her way.
+
+`[Click "Switch role" → Principal Investigator]`
+
+`[Click DEO-24A study tab, then "Adverse events"]`
+
+`[You're at /admin/studies/<id>/ae]`
+
+Riley's report is here at the top, marked SERIOUS and REPORTED. The coordinator triages, then resolves with a note.
+
+`[Click "Triage" on Riley's report]`
+
+`[A resolution input appears. Type: "Cleared by Dr. Reyes — switch to fragrance-free formula, resume schedule"]`
+
+`[Click "Resolve"]`
+
+That resolution just told the engine to restore every paused task to its previous status. Her stream picks up exactly where it left off — no manual cleanup, no missed reminders.
+
+---
+
+## SCENE 7 — Closing on the audit log (~30 sec)
+
+`[Click "Audit log" in the top admin nav]`
+
+`[You're at /admin/audit]`
+
+Everything that happened in this demo is here. Enrollment, consent signed, task completed, kit allocated, shipping webhook received, payment requested, payment settled, AE reported, stream paused, AE resolved, stream resumed. Every state change in the system, append-only, with the actor, the action, the target, and the metadata.
+
+`[Scroll through the list briefly]`
+
+In production, that immutability is enforced at three layers — a database role with no UPDATE or DELETE grant on this table, periodic Merkle-root anchoring to a separately controlled store, and write-once-read-many backup retention. The prototype demonstrates the architectural shape — eighteen of the nineteen modules from the proposal are wired up, all running through this same engine, all writing to this same audit log.
+
+That's the platform. Thanks for watching.
+
+`[End recording]`
+
+---
+
+## Cut-for-time scenes — re-add if you have headroom
+
+Each is about 30 seconds. Slot in after Scene 6 if you have extra runway:
+
+**Appointments & telehealth seam** — go to `/admin/studies/<id>/appointments`. Say:
+> "Appointments support in-person, e-visit, and video — video's reserved as the telehealth seam, not implemented yet. Participants can download a real `.ics` file to add the visit to their calendar."
+
+**Editable study management** — click the "+ New study" chip in the top nav. Say:
+> "Studies are editable in admin. New study, give it a name and a code, you get a draft with a default arm and an enrollment timepoint. From there you'd edit arms, timepoints, the SOE template — and there's a clone-config flow that copies a study's entire configuration without copying any participant data."
+
+**Communications** — advance the sim clock by 7 days from the simulator. Then go to `/admin/studies/<id>/communications`. Say:
+> "Every reminder is a real Message row — channel, recipient, body, status. Templates are per-study with variable substitution. The mock vendor is what's wired here — in production it'd be SendGrid or Twilio behind the same adapter interface."
+
+---
 
 ## Recording tips
 
-- **Pause a beat after each state change.** Let status pills flip and
-  audit rows appear before moving on.
-- **The three load-bearing moments are:** consent materialising the
-  timeline (Scene 2), kit-delivered unlocking the activate task (Scene
-  4), and AE auto-pausing the stream (Scene 6). If those land cleanly,
-  everything else is a victory lap.
-- **If you mis-click, say "ignore that" and keep going.** Hard cuts in
-  post are fine.
-
-## Cut for time — re-add if you have headroom
-
-- **Appointments** at `/admin/studies/<id>/appointments` — modality
-  field reserves the telehealth seam, `.ics` download for participants.
-- **Regulatory docs** at `/regulatory` — version-chained repository.
-- **Staff assignments + internal notes** — `/admin/staff`,
-  `/assignments`, and the notes thread embedded in participant detail.
-- **Communications** — advance the sim clock by +7 days to fire a real
-  reminder, then check `/admin/studies/<id>/communications` and
-  `/portal/inbox`.
-- **Editable study management** — `/admin/studies/new` and the
-  clone-config flow on `/edit`.
-
-Each is one extra scene of ~30s if you want to extend.
+- Pause about a second after each click. Let status pills flip and audit rows appear before you keep reading.
+- If you misclick, just say "ignore that" and keep going. Cut it in post.
+- The three load-bearing moments are: consent materialising the timeline (Scene 2), kit-delivered unlocking the activate task (Scene 4), and AE auto-pausing the stream (Scene 6). If those land cleanly, everything else is a victory lap.
