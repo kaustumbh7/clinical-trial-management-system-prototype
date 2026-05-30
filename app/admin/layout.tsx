@@ -38,26 +38,30 @@ export default async function AdminLayout({
             <RoleSwitcher />
           </div>
         </div>
-        {studies.length > 0 && (
-          <div className="mx-auto flex max-w-[1400px] items-center gap-1 overflow-x-auto px-6 pb-3">
-            <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)] mr-2">
-              Studies
-            </span>
-            {studies.map((s) => (
-              <Link
-                key={s.id}
-                href={`/admin/studies/${s.id}`}
-                className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-[12px] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-              >
-                <span className="font-mono text-[10px] text-[var(--color-muted)]">
-                  {s.code}
-                </span>
-                <span className="mx-1.5 text-[var(--color-border-strong)]">·</span>
-                {s.name.length > 38 ? s.name.slice(0, 38) + "…" : s.name}
-              </Link>
-            ))}
-          </div>
-        )}
+        <div className="mx-auto flex max-w-[1400px] items-center gap-1 overflow-x-auto px-6 pb-3">
+          <span className="text-[10px] uppercase tracking-[0.2em] text-[var(--color-muted)] mr-2">
+            Studies
+          </span>
+          {studies.map((s) => (
+            <Link
+              key={s.id}
+              href={`/admin/studies/${s.id}`}
+              className="rounded-full border border-[var(--color-border)] bg-[var(--color-surface)] px-3 py-1 text-[12px] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+            >
+              <span className="font-mono text-[10px] text-[var(--color-muted)]">
+                {s.code}
+              </span>
+              <span className="mx-1.5 text-[var(--color-border-strong)]">·</span>
+              {s.name.length > 38 ? s.name.slice(0, 38) + "…" : s.name}
+            </Link>
+          ))}
+          <Link
+            href="/admin/studies/new"
+            className="rounded-full border border-dashed border-[var(--color-border-strong)] bg-[var(--color-surface)] px-3 py-1 text-[12px] text-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]"
+          >
+            + New study
+          </Link>
+        </div>
       </header>
       <main className="mx-auto w-full max-w-[1400px] flex-1 px-6 py-8">
         {children}

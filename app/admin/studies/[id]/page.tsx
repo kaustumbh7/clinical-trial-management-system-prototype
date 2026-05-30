@@ -84,6 +84,13 @@ export default async function StudyDetailPage({
         </div>
         <div className="flex flex-wrap gap-2">
           <Button
+            href={`/admin/studies/${study.id}/edit`}
+            variant="secondary"
+            size="sm"
+          >
+            Edit study
+          </Button>
+          <Button
             href={`/admin/studies/${study.id}/soe`}
             variant="secondary"
             size="sm"
